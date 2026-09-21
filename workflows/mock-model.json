@@ -1,0 +1,82 @@
+{
+  "id": "mock-model",
+  "name": "Mock Model (test fixture)",
+  "active": false,
+  "nodes": [
+    {
+      "id": "b19305e9-f2e4-5359-a129-175b3747e3d5",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mock-model",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "none"
+      },
+      "webhookId": "5a1d2c3b-7e8f-5a4b-9c0d-1e2f3a4b5c6d"
+    },
+    {
+      "id": "48793270-0d7d-5420-a965-d00c6eed91f1",
+      "name": "Build Mock Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Test fixture standing in for the DeepSeek API. ?status=429|503|... answers with that HTTP status and an\n// error body; ?status=200 answers with a chat completion whose content is ?content (default: not JSON).\nconst query = $input.first().json.query || {};\nconst status = Number(query.status) || 503;\nconst body = status >= 200 && status < 300\n  ? { choices: [{ finish_reason: 'stop', message: { content: query.content || 'not json' } }] }\n  : { error: { message: `simulated model outage (${status})`, code: status } };\nreturn [{ json: { http_status: status, body } }];\n"
+      }
+    },
+    {
+      "id": "ffd37349-573c-5be1-af0b-924f8a25792c",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "responseCode": "={{ $json.http_status }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Mock Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Mock Reply": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
