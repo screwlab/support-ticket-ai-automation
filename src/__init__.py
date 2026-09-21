@@ -1,0 +1,1 @@
+"""Take-home assignment examples."""
