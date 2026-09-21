@@ -1,0 +1,36 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.38.7
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      # Code nodes (JavaScript and Python) execute in the runners container below.
+      N8N_RUNNERS_MODE: external
+      N8N_RUNNERS_AUTH_TOKEN: local-dev-token
+      N8N_RUNNERS_BROKER_LISTEN_ADDRESS: 0.0.0.0
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/workflows:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  runners:
+    image: n8nio/runners:2.38.7
+    restart: unless-stopped
+    depends_on:
+      - n8n
+    environment:
+      N8N_RUNNERS_TASK_BROKER_URI: http://n8n:5679
+      N8N_RUNNERS_AUTH_TOKEN: local-dev-token
+    # The bundled launcher config pins the Python stdlib allow-list to "", and `Validate and Mask PII` imports `re`.
+    entrypoint: ["tini", "--", "sh", "-c", "sed 's/\"N8N_RUNNERS_STDLIB_ALLOW\": \"\"/\"N8N_RUNNERS_STDLIB_ALLOW\": \"re\"/' /etc/n8n-task-runners.json > /tmp/runners.json && N8N_RUNNERS_CONFIG_PATH=/tmp/runners.json exec task-runner-launcher javascript python"]
+
+volumes:
+  n8n_data:
